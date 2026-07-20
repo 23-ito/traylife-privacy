@@ -498,7 +498,19 @@
   const walkFill = document.getElementById("walk-fill");
   const walker = document.getElementById("walker");
   const glows = document.querySelectorAll(".glow");
-  topBtn.addEventListener("click", () => scrollTo({ top: 0, behavior: "smooth" }));
+  function smoothScrollToTop(duration = 900) {
+    const start = scrollY;
+    if (start <= 0) return;
+    const t0 = performance.now();
+    const ease = t => 1 - Math.pow(1 - t, 3); // easeOutCubic
+    function step(now) {
+      const t = Math.min((now - t0) / duration, 1);
+      scrollTo(0, Math.round(start * (1 - ease(t))));
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  topBtn.addEventListener("click", () => smoothScrollToTop());
   let ticking = false;
   addEventListener("scroll", () => {
     if (ticking) return;
