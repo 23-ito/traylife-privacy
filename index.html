@@ -107,11 +107,13 @@
   .hero .tagline { margin-top: 18px; font-size: clamp(.98rem, 2.6vw, 1.2rem); color: var(--sub); font-weight: 500; }
 
   .hero .pet {
-    --s: 220px;
+    --s: 224px; /* 32の整数倍にしてドットを完全にくっきり出す */
     width: var(--s); height: var(--s);
     margin: 54px auto 0;
     background-image: url(assets/anim-child.png);
     background-size: calc(var(--s) * 4) var(--s);
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
     filter: drop-shadow(0 24px 50px rgba(79,208,138,.35));
     animation: cycle 1s steps(1) infinite, floaty 5s ease-in-out infinite;
   }
@@ -260,6 +262,52 @@
   footer .links a { color: var(--sub); text-decoration: none; margin: 0 14px; transition: color .25s; }
   footer .links a:hover { color: var(--fg); }
   footer .copy { margin-top: 14px; font-family: var(--font-en); letter-spacing: .04em; }
+
+  /* ---------- back to top ---------- */
+  #top-btn {
+    position: fixed; right: 22px; bottom: 64px; z-index: 60;
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 1px solid rgba(79,208,138,.4);
+    background: rgba(10,14,12,.8);
+    backdrop-filter: blur(10px);
+    color: var(--em); font-size: 1rem; line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transform: translateY(10px);
+    transition: opacity .35s ease, transform .35s ease, box-shadow .25s ease, background .25s ease;
+  }
+  #top-btn.show { opacity: 1; pointer-events: auto; transform: none; }
+  #top-btn:hover { background: rgba(79,208,138,.16); box-shadow: 0 6px 24px rgba(79,208,138,.25); }
+
+  /* ---------- scroll walker (ページ最下部の"タスクバー"を歩くスライム) ---------- */
+  #walkbar {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 52px;
+    z-index: 55; pointer-events: none;
+    opacity: 0; transition: opacity .5s ease;
+  }
+  #walkbar.show { opacity: 1; }
+  #walkbar .rail {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+    background: rgba(255,255,255,.06);
+  }
+  #walkbar .fill {
+    position: absolute; left: 0; bottom: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, rgba(79,208,138,.35), var(--em));
+    box-shadow: 0 0 12px rgba(79,208,138,.55);
+  }
+  #walkbar .walker {
+    --s: 48px;
+    position: absolute; bottom: 2px; left: 0;
+    width: var(--s); height: var(--s);
+    background-image: url(assets/anim-child.png);
+    background-size: calc(var(--s) * 4) var(--s);
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    transform: scaleX(-1); /* 素のドット絵は左向きなので、右へ進む姿に反転 */
+    animation: cycle .55s steps(1) infinite;
+    filter: drop-shadow(0 4px 10px rgba(79,208,138,.35));
+    will-change: left;
+  }
 
   /* ---------- reveal ---------- */
   [data-rv] {
@@ -426,6 +474,14 @@
   <div class="copy">TrayLife — © 2026 Ito Studio</div>
 </footer>
 
+<button id="top-btn" aria-label="ページの先頭へ戻る" title="トップへ">▲</button>
+
+<div id="walkbar" aria-hidden="true">
+  <div class="rail"></div>
+  <div class="fill" id="walk-fill"></div>
+  <div class="walker" id="walker"></div>
+</div>
+
 <script>
   // スクロールで現れる
   const io = new IntersectionObserver((entries) => {
@@ -435,17 +491,31 @@
   }, { threshold: 0.18 });
   document.querySelectorAll("[data-rv]").forEach(el => io.observe(el));
 
-  // ヘッダー表示 & ヒーローのグローに軽いパララックス
+  // ヘッダー・トップへ戻る・ウォーカーの表示 & グローのパララックス
   const hd = document.getElementById("hd");
+  const topBtn = document.getElementById("top-btn");
+  const walkbar = document.getElementById("walkbar");
+  const walkFill = document.getElementById("walk-fill");
+  const walker = document.getElementById("walker");
   const glows = document.querySelectorAll(".glow");
+  topBtn.addEventListener("click", () => scrollTo({ top: 0, behavior: "smooth" }));
   let ticking = false;
   addEventListener("scroll", () => {
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(() => {
       const y = scrollY;
-      hd.classList.toggle("show", y > 90);
+      const scrolled = y > 90;
+      hd.classList.toggle("show", scrolled);
+      topBtn.classList.toggle("show", scrolled);
+      walkbar.classList.toggle("show", scrolled);
       glows.forEach(g => { g.style.transform = `translateY(${y * parseFloat(g.dataset.px)}px)`; });
+
+      // スクロール進捗ぶんだけ、最下部の"タスクバー"をスライムが歩く
+      const max = document.documentElement.scrollHeight - innerHeight;
+      const p = max > 0 ? Math.min(y / max, 1) : 0;
+      walkFill.style.width = (p * 100) + "%";
+      walker.style.left = (p * (innerWidth - 56)) + "px";
       ticking = false;
     });
   }, { passive: true });
